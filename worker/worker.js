@@ -1,7 +1,9 @@
 import { Worker } from 'bullmq';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import path from 'path';
 import { runBuild } from './executor.js';
+import { uploadDirectory } from './uploader.js';
 
 dotenv.config();
 
@@ -31,14 +33,20 @@ const worker = new Worker('deployments', async (job) => {
   console.log(`Status updated to building for: ${deploymentId}`);
 
   try {
+    // 1. Run the build
     await runBuild(deploymentId, repoUrl);
 
+    // 2. Upload the output to S3
+    const outputDir = path.resolve(`./builds/${deploymentId}`);
+    await uploadDirectory(outputDir, deploymentId);
+
+    // 3. Mark as ready
     await db.execute(
       'UPDATE deployments SET status = ? WHERE id = ?',
       ['ready', deploymentId]
     );
 
-    console.log(`Deployment ${deploymentId} is ready!`);
+    console.log(`Deployment ${deploymentId} is ready and uploaded!`);
 
   } catch (err) {
     await db.execute(
