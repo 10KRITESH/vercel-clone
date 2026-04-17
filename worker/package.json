@@ -6,6 +6,7 @@
     "start": "nodemon worker.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1031.0",
     "bullmq": "^5.41.0",
     "dotenv": "^16.4.7",
     "mysql2": "^3.12.0"
