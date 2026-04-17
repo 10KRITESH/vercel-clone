@@ -1,6 +1,8 @@
 import { Worker } from 'bullmq';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { runBuild } from './executor.js';
+
 dotenv.config();
 
 const connection = {
@@ -27,6 +29,25 @@ const worker = new Worker('deployments', async (job) => {
   );
 
   console.log(`Status updated to building for: ${deploymentId}`);
+
+  try {
+    await runBuild(deploymentId, repoUrl);
+
+    await db.execute(
+      'UPDATE deployments SET status = ? WHERE id = ?',
+      ['ready', deploymentId]
+    );
+
+    console.log(`Deployment ${deploymentId} is ready!`);
+
+  } catch (err) {
+    await db.execute(
+      'UPDATE deployments SET status = ? WHERE id = ?',
+      ['failed', deploymentId]
+    );
+
+    console.error(`Deployment ${deploymentId} failed:`, err.message);
+  }
 
 }, { connection });
 
