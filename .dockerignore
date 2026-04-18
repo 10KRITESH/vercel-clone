@@ -1,0 +1,6 @@
+node_modules
+.git
+api-server/node_modules
+worker/node_modules
+worker/builds
+.env

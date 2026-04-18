@@ -40,7 +40,15 @@ const worker = new Worker('deployments', async (job) => {
     const outputDir = path.resolve(`./builds/${deploymentId}`);
     await uploadDirectory(outputDir, deploymentId);
 
-    // 3. Mark as ready
+    // 3. Clean up local build directory after upload
+    try {
+      console.log(`Cleaning up local build directory: ${outputDir}`);
+      fs.rmSync(outputDir, { recursive: true, force: true });
+    } catch (cleanupErr) {
+      console.warn(`Warning: Could not clean up local directory ${outputDir}:`, cleanupErr.message);
+    }
+
+    // 4. Mark as ready
     await db.execute(
       'UPDATE deployments SET status = ? WHERE id = ?',
       ['ready', deploymentId]
@@ -57,7 +65,11 @@ const worker = new Worker('deployments', async (job) => {
     console.error(`Deployment ${deploymentId} failed:`, err.message);
   }
 
-}, { connection });
+}, { 
+  connection,
+  lockDuration: 300000, // 5 minutes
+  lockRenewTime: 150000 // Renew at half-time
+});
 
 worker.on('completed', (job) => {
   console.log(`Job ${job.id} completed`);
