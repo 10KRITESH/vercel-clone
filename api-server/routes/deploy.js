@@ -27,6 +27,13 @@ router.post('/', async (req, res) => {
   });
 });
 
+router.get('/', async (req, res) => {
+  const [rows] = await db.execute(
+    'SELECT * FROM deployments ORDER BY created_at DESC'
+  );
+  res.json(rows);
+});
+
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   const [rows] = await db.execute(
