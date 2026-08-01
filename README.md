@@ -1,102 +1,113 @@
-# 🚀 Vercel Clone — Self-Hosted Managed Deployment Platform
+<div align="center">
 
-A production-grade, self-hosted deployment platform inspired by Vercel. Provide a GitHub repository URL, and the system automatically clones, builds in isolated Docker containers, uploads static artifacts to AWS S3, and serves live sites on custom subdomains via an Nginx reverse proxy.
+# 🚀 Vercel Clone — Managed Deployment Platform
+
+**Self-Hosted Cloud Infrastructure for Automated Web Application Deployments**
+
+Submit a GitHub repository URL → Vercel Clone provisions an isolated Docker container, clones and builds the project, uploads static output artifacts to AWS S3, and serves live sites dynamically via Nginx reverse proxy subdomains.
+
+[![Node.js](https://img.shields.io/badge/Node.js-v20+-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Express](https://img.shields.io/badge/Express-v4-000000?style=flat-square&logo=express&logoColor=white)](https://expressjs.com)
+[![Docker](https://img.shields.io/badge/Docker-Containers-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
+[![AWS S3](https://img.shields.io/badge/AWS-S3-FF9900?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com/s3/)
+[![Redis](https://img.shields.io/badge/Redis-BullMQ-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io)
+[![Nginx](https://img.shields.io/badge/Nginx-Reverse_Proxy-009639?style=flat-square&logo=nginx&logoColor=white)](https://nginx.org)
+[![License](https://img.shields.io/badge/License-ISC-blue?style=flat-square)](LICENSE)
+
+</div>
 
 ---
 
-## 🏗️ Architecture Overview
+## 📸 How It Works
 
-```mermaid
-graph TD
-    User([User / API Client]) -->|POST /deploy| API[API Server - Express]
-    API -->|1. Store Metadata| DB[(MySQL / MariaDB)]
-    API -->|2. Push Job| Queue[(Redis / BullMQ)]
-    
-    Queue -->|3. Pick Job| Worker[Worker Process]
-    Worker -->|4. Update Status: building| DB
-    Worker -->|5. Spin Container & Build| Docker[Docker Container]
-    Docker -->|6. Output dist/| Worker
-    Worker -->|7. Upload Artifacts| S3[(AWS S3 Bucket)]
-    Worker -->|8. Update Status: ready| DB
-
-    Client([Browser Visitor]) -->|http://id.127.0.0.1.sslip.io| Nginx[Nginx Reverse Proxy]
-    Nginx -->|Fetch Static Assets| S3
+```
+  You submit a GitHub repo URL 
+         │
+         ▼
+  ┌──────────────────────┐
+  │   Express API        │  POST /deploy
+  │   (api-server)       │──────────────────┐
+  └──────────────────────┘                  │
+                                            ▼
+                                   ┌─────────────────┐
+                                   │  BullMQ Queue    │
+                                   │  (Redis-backed)  │
+                                   └────────┬────────┘
+                                            │
+                                            ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │                    Worker Process                       │
+  │                                                         │
+  │  1. Spin up isolated Docker build container             │
+  │  2. Clone GitHub repository inside container            │
+  │  3. Execute `npm install` and `npm run build`          │
+  │  4. Extract build output (dist/ / build/)               │
+  │  5. Recursively upload all static files to AWS S3       │
+  │  6. Update database status to 'ready'                   │
+  └─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │                 AWS S3 Cloud Storage                    │
+  │  Bucket: deployments/<deploymentId>/*                   │
+  └─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │                  Nginx Reverse Proxy                    │
+  │                                                         │
+  │  Incoming: http://<deploymentId>.127.0.0.1.sslip.io     │
+  │  Proxy Pass → AWS S3 object location                    │
+  └─────────────────────────────────────────────────────────┘
 ```
 
-### Flow Breakdown
-1. **API Server (`api-server`)**: Accepts deployment requests (`POST /deploy`), persists job metadata into MySQL, and pushes jobs to Redis queue.
-2. **Asynchronous Queue (`BullMQ + Redis`)**: Decouples API responses from long-running build processes.
-3. **Worker (`worker`)**: Listens to queue, provisions Docker containers to safely clone and execute `npm install && npm run build`.
-4. **Cloud Storage (`AWS S3`)**: Stores processed static build outputs (`dist/` / `build/`) under `deployments/<deploymentId>/`.
-5. **Reverse Proxy (`proxy/nginx`)**: Extracts deployment ID from request subdomains (`<deploymentId>.127.0.0.1.sslip.io`) and dynamically routes traffic to corresponding AWS S3 objects.
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| **Automated Build Pipeline** | Clones public GitHub repositories and builds production bundles automatically |
+| **Isolated Build Runner** | Runs untrusted user code inside ephemeral Docker containers for maximum security |
+| **Async Job Queue** | BullMQ + Redis architecture decouples API HTTP responses from build executions |
+| **Cloud Asset Hosting** | Recursively uploads static build outputs (`dist/`, `build/`) to AWS S3 object storage |
+| **Dynamic Subdomain Proxy** | Nginx reverse proxy routes wildcard subdomains directly to AWS S3 deployment paths |
+| **Status Tracking** | Real-time status tracking stored in MySQL (`queued`, `building`, `ready`, `failed`) |
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology | Description |
-| :--- | :--- | :--- |
-| **API Framework** | Node.js + Express | RESTful API endpoints for job creation & status querying |
-| **Database** | MySQL / MariaDB | Deployment status tracking and metadata persistence |
-| **Job Queue** | BullMQ + Redis | Reliable asynchronous background task distribution |
-| **Build Isolation** | Docker | Containerized build runner environment |
-| **Storage** | AWS S3 | Object storage hosting static web assets |
-| **Reverse Proxy** | Nginx | Wildcard subdomain extraction and proxy routing |
-| **AWS SDK** | `@aws-sdk/client-s3` | Programmatic file upload & management |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **API Server** | Node.js + Express | REST API endpoints for initiating and checking deployments |
+| **Database** | MySQL / MariaDB | Persistent storage for deployment records and status tracking |
+| **Job Queue** | BullMQ + Redis | Background job scheduling and asynchronous task execution |
+| **Build Isolation** | Docker | Ephemeral containerized build runner environment |
+| **Cloud Storage** | AWS S3 | Static web asset object storage |
+| **Reverse Proxy** | Nginx | Wildcard subdomain extraction & proxy routing |
+| **AWS SDK** | `@aws-sdk/client-s3` | Programmatic S3 uploads and asset management |
 
 ---
 
-## 📂 Repository Structure
+## 🚀 Getting Started
 
-```
-vercel-clone/
-├── api-server/             # Express API Server
-│   ├── db/                 # Database connection & migrations
-│   ├── routes/             # API routes (/deploy)
-│   ├── index.js            # Express entry point
-│   └── queue.js            # BullMQ queue producer
-│
-├── worker/                 # Background Job Processor
-│   ├── executor.js         # Docker run, Git clone & build pipeline
-│   ├── uploader.js         # AWS S3 recursive file uploader
-│   ├── worker.js           # BullMQ consumer entry point
-│   └── test-s3.js          # S3 connectivity test script
-│
-├── proxy/                  # Nginx Reverse Proxy
-│   └── nginx.conf          # Wildcard subdomain proxy rules
-│
-├── docker/                 # Build Runner Container Setup
-│   └── Dockerfile          # Isolated Node.js build runner base image
-│
-├── GEMINI.md               # Architecture details & schema reference
-└── README.md               # Documentation
+### Prerequisites
+
+- **Node.js** v20+
+- **Docker** installed and running
+- **MySQL / MariaDB** database
+- **Redis** server
+- **AWS S3 Bucket** with IAM credentials
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/10KRITESH/vercel-clone.git
+cd vercel-clone
 ```
 
----
-
-## ⚡ Quick Start & Setup
-
-### 1. Environment Setup
-Create `.env` configuration files inside `api-server/.env` and `worker/.env`:
-
-```env
-PORT=3000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=vercel_clone
-
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-
-AWS_ACCESS_KEY_ID=your_aws_access_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-AWS_REGION=ap-south-1
-AWS_BUCKET_NAME=kritesh-vercel-clone-outputs
-```
-
-### 2. Database Schema
-Run the following SQL migration in MySQL/MariaDB:
+### 2. Set Up Database
 
 ```sql
 CREATE DATABASE IF NOT EXISTS vercel_clone;
@@ -110,43 +121,51 @@ CREATE TABLE IF NOT EXISTS deployments (
 );
 ```
 
-### 3. Start Redis & MySQL Services
-Ensure Redis and MySQL/MariaDB are running locally:
-```bash
-sudo systemctl start redis
-sudo systemctl start mariadb
+### 3. Configure Environment
+
+Create `.env` files in both `api-server/` and `worker/` directories:
+
+```env
+PORT=3000
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=vercel_clone
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=ap-south-1
+AWS_BUCKET_NAME=kritesh-vercel-clone-outputs
 ```
 
-### 4. Start Services
+### 4. Run Services
 
-**API Server:**
 ```bash
-cd api-server
-npm install
-npm run start
-```
+# Terminal 1 — Start API Server
+cd api-server && npm install && npm run start
 
-**Worker Engine:**
-```bash
-cd worker
-npm install
-node worker.js
+# Terminal 2 — Start Worker Process
+cd worker && npm install && node worker.js
 ```
 
 ---
 
-## 📡 API Endpoints
+## 📡 API Reference
 
-### 1. Request Deployment
-* **Endpoint:** `POST /deploy`
-* **Headers:** `Content-Type: application/json`
-* **Body:**
-```json
-{
-  "repoUrl": "https://github.com/user/repo"
-}
+### `POST /deploy`
+
+Queue a new deployment job for a GitHub repository.
+
+```bash
+curl -X POST http://localhost:3000/deploy \
+  -H "Content-Type: application/json" \
+  -d '{"repoUrl": "https://github.com/user/repo"}'
 ```
-* **Response (200 OK):**
+
+**Response:**
 ```json
 {
   "deploymentId": "b3a1d94e-7f12-4c22-9213-a4e82b7df901",
@@ -155,9 +174,17 @@ node worker.js
 }
 ```
 
-### 2. Check Deployment Status
-* **Endpoint:** `GET /deploy/:id`
-* **Response (200 OK):**
+---
+
+### `GET /deploy/:id`
+
+Check the status of an ongoing or completed deployment.
+
+```bash
+curl http://localhost:3000/deploy/b3a1d94e-7f12-4c22-9213-a4e82b7df901
+```
+
+**Response:**
 ```json
 {
   "id": "b3a1d94e-7f12-4c22-9213-a4e82b7df901",
@@ -169,22 +196,49 @@ node worker.js
 
 ---
 
-## 🌐 Subdomain Access & Routing
+## 🌐 Subdomain Routing
 
-Deployments are hosted automatically on subdomains once the status reaches `ready`:
+Once a deployment status reaches `ready`, access the live static site using the deployment ID:
 
 ```
 http://<deploymentId>.127.0.0.1.sslip.io
 ```
 
-Nginx dynamically parses `<deploymentId>` from incoming requests and proxies the request to AWS S3 (`https://kritesh-vercel-clone-outputs.s3.ap-south-1.amazonaws.com/deployments/<deploymentId>/index.html`).
+Nginx extracts `<deploymentId>` from the host header and transparently proxies traffic to:
+`https://kritesh-vercel-clone-outputs.s3.ap-south-1.amazonaws.com/deployments/<deploymentId>/index.html`
 
 ---
 
-## 📈 Implementation Milestones
+## 📂 Project Structure
 
-- [x] **Phase 1 — API Server:** REST endpoints & MySQL database integration.
-- [x] **Phase 2 — Queue System:** BullMQ queue producer/consumer with Redis.
-- [x] **Phase 3 — Docker Build Runner:** Automated repo cloning & containerized build runner.
-- [x] **Phase 4 — AWS S3 Upload:** Recursive asset upload via AWS SDK v3.
-- [x] **Phase 5 — Nginx Reverse Proxy:** Wildcard subdomain proxying & SPA routing.
+```
+vercel-clone/
+├── api-server/             # Express API Server & queue producer
+│   ├── db/                 # Database connection logic
+│   ├── routes/             # API routes (/deploy)
+│   └── queue.js            # BullMQ producer setup
+├── worker/                 # Background build & upload worker
+│   ├── executor.js         # Docker runner & Git clone pipeline
+│   ├── uploader.js         # AWS S3 recursive uploader
+│   └── worker.js           # BullMQ consumer entry point
+├── proxy/                  # Nginx Reverse Proxy
+│   └── nginx.conf          # Wildcard subdomain proxy rules
+├── docker/                 # Build Runner Container
+│   └── Dockerfile          # Ephemeral build image configuration
+├── .env                    # Environment variables
+└── README.md
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the [ISC License](https://opensource.org/licenses/ISC).
+
+---
+
+<div align="center">
+
+**Built by [Kritesh Goud](https://github.com/10KRITESH)**
+
+</div>
